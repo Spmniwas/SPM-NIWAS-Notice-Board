@@ -3,58 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPM NIWAS - Notice Board Dashboard</title>
-    <!-- Tailwind CSS for sleek, modern layout designs -->
+    <title>SPM NIWAS - Circulars & Memos Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Ensuring strict table borders matching government portal aesthetics */
+        table, th, td { border: 1px solid #cbd5e1; }
+    </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body class="bg-amber-50/30 min-h-screen text-slate-800 font-sans antialiased">
 
-    <!-- Navbar Header -->
-    <header class="bg-sky-900 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">SPM NIWAS</h1>
-                <p class="text-sky-200 text-sm mt-1">Official Digital Notice & Policy Board</p>
-            </div>
-            <div id="last-updated" class="text-xs bg-sky-800 px-3 py-1.5 rounded-md text-sky-100 border border-sky-700">
-                🔄 Connecting to Google Sheets...
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content Wrapper -->
-    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <main class="max-w-7xl mx-auto px-4 py-8">
         
-        <!-- Search and Counter Controls -->
-        <div class="bg-white rounded-xl shadow-xs p-4 mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between border border-slate-200">
-            <div class="w-full sm:w-72 relative">
-                <input type="text" id="search-bar" placeholder="Search by Notice, Order No, or Details..." 
-                       class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent">
-            </div>
-            <div class="flex gap-2 text-xs font-medium text-slate-500">
-                <span>Filter Status:</span>
-                <span id="counter" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">0 Items</span>
+        <div class="text-center mb-6">
+            <h2 class="text-xl font-bold tracking-wider text-amber-900 uppercase inline-block border-b-2 border-amber-700 pb-1">
+                CIRCULARS & MEMOS
+            </h2>
+        </div>
+
+        <div class="bg-[#fdfcf7] rounded-md border border-amber-200/60 p-3 mb-6 text-sm shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                
+                <div class="flex items-center gap-2 flex-1 min-w-[180px]">
+                    <label for="filter-category" class="text-sky-900 font-medium whitespace-nowrap">Category</label>
+                    <select id="filter-category" class="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:outline-sky-600">
+                        <option value="-ALL-">-ALL-</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <label for="filter-order" class="text-sky-900 font-medium whitespace-nowrap">Order No.</label>
+                    <input type="text" id="filter-order" class="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:outline-sky-600" placeholder="Search ID...">
+                </div>
+
+                <div class="flex items-center gap-2 flex-[1.5] min-w-[240px]">
+                    <label for="filter-subject" class="text-sky-900 font-medium whitespace-nowrap">Subject</label>
+                    <input type="text" id="filter-subject" class="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:outline-sky-600" placeholder="Search text in notices or details...">
+                </div>
+
+                <div id="counter-badge" class="text-xs font-semibold text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded">
+                    0 Items
+                </div>
             </div>
         </div>
 
-        <!-- Loading / Status Monitor Messages -->
-        <div id="status-message" class="text-center py-12 text-slate-500 text-lg">
-            <span class="animate-pulse">Loading notices from live database...</span>
+        <div id="status-message" class="text-center py-8 text-slate-500 text-sm italic">
+            Connecting to data streams...
         </div>
 
-        <!-- Grid Container for Dynamic Notices -->
-        <div id="notice-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
-            <!-- Notices will load dynamically here -->
+        <div id="table-wrapper" class="overflow-x-auto rounded border border-slate-300 shadow-xs hidden">
+            <table class="w-full border-collapse bg-white text-left text-sm">
+                <thead>
+                    <tr class="bg-sky-700 text-white font-semibold text-xs tracking-wider">
+                        <th class="p-3 w-[20%]">Circular / Memo / Order No.</th>
+                        <th class="p-3 w-[12%]">Date</th>
+                        <th class="p-3 w-[12%]">Category</th>
+                        <th class="p-3 w-[44%]">Subject / Details</th>
+                        <th class="p-3 w-[12%] text-center">Download</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-slate-200 text-slate-700">
+                    </tbody>
+            </table>
         </div>
+
     </main>
 
     <script>
-        // Your designated Google Sheets Published CSV Link
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRb6eyiMJOIdAx5K2p1mieQdPRrfWmJaZwFhjkqanjEau2Z5DNbs0g1GofVt8bVpqTulEX_91KTpvE_/pub?gid=1532868234&single=true&output=csv';
 
-        let allNotices = []; // Global array holding raw entries for live filtering
+        let allNotices = [];
 
-        // Robust CSV Parser designed to read data containing commas inside quotes correctly
+        // Engine parsing engine that accounts for strings with quotes and internal commas safely
         function parseCSV(text) {
             const lines = [];
             let row = [""];
@@ -78,7 +97,6 @@
             }
             if (row.length > 1 || row[0] !== '') lines.push(row);
             
-            // Map keys based on headers from your spreadsheet screenshot (image_4c567a.png)
             const headers = lines[0].map(h => h.trim());
             return lines.slice(1).map(line => {
                 let obj = {};
@@ -89,112 +107,117 @@
             });
         }
 
-        // Color styling definitions mapped according to your "Type" column dropdown flags
-        function getTypeStyle(type) {
-            const t = type ? type.toLowerCase() : '';
-            if (t.includes('policy')) return 'bg-purple-50 text-purple-700 border-purple-200';
-            if (t.includes('notice')) return 'bg-amber-50 text-amber-700 border-amber-200';
-            return 'bg-blue-50 text-blue-700 border-blue-200';
-        }
-
-        // Render card layout elements directly into the UI dashboard
-        function renderNotices(noticesToDisplay) {
-            const container = document.getElementById('notice-container');
-            document.getElementById('counter').innerText = `${noticesToDisplay.length} Item(s) active`;
+        // Populates Category choices safely based on items present in data rows
+        function populateCategories(data) {
+            const dropdown = document.getElementById('filter-category');
+            const categories = new Set();
             
-            container.innerHTML = '';
+            data.forEach(item => {
+                if(item['Type']) categories.add(item['Type']);
+            });
 
-            if (noticesToDisplay.length === 0) {
-                container.classList.add('hidden');
-                document.getElementById('status-message').classList.remove('hidden');
-                document.getElementById('status-message').innerText = "🔍 No current announcements matched your search terms.";
-                return;
-            }
-
-            document.getElementById('status-message').classList.add('hidden');
-            container.classList.remove('hidden');
-
-            noticesToDisplay.forEach(item => {
-                const card = document.createElement('div');
-                card.className = "bg-white border border-slate-200 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 p-6 flex flex-col justify-between";
-                
-                // Constructing Document Download Links securely
-                let downloadBtn = `<span class="text-slate-400 italic text-xs">No file attachment</span>`;
-                const linkVal = item['Download'];
-                
-                if (linkVal && (linkVal.startsWith('http://') || linkVal.startsWith('https://'))) {
-                    downloadBtn = `
-                        <a href="${linkVal}" target="_blank" rel="noopener noreferrer" 
-                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 text-sky-700 font-semibold text-xs rounded-lg border border-sky-200 hover:bg-sky-100 transition-colors">
-                           📥 View/Download Document
-                        </a>`;
-                }
-
-                card.innerHTML = `
-                    <div>
-                        <div class="flex items-center justify-between gap-2 mb-3">
-                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md border ${getTypeStyle(item['Type'])}">
-                                ${item['Type'] || 'General'}
-                            </span>
-                            <span class="text-xs font-mono text-slate-400">${item['Date'] || 'N/A'}</span>
-                        </div>
-                        
-                        <h3 class="text-base font-bold text-slate-900 mb-2 tracking-tight line-clamp-3" title="${item['Notice']}">
-                            ${item['Notice'] || 'Untitled Notification'}
-                        </h3>
-                        
-                        <p class="text-[11px] font-mono text-slate-400 mb-4" title="Order Number">
-                            ID: ${item['Order No.'] || 'N/A'}
-                        </p>
-                        
-                        <p class="text-slate-600 text-sm leading-relaxed mb-6 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100 max-h-48 overflow-y-auto">
-                            ${item['Details'] || 'No additional details provided.'}
-                        </p>
-                    </div>
-                    
-                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
-                        ${downloadBtn}
-                    </div>
-                `;
-                container.appendChild(card);
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                dropdown.appendChild(opt);
             });
         }
 
-        // Live cycle execution fetching pipelines
-        async function initDashboard() {
+        // Render routine
+        function displayData(items) {
+            const tbody = document.getElementById('table-body');
+            const wrapper = document.getElementById('table-wrapper');
+            const status = document.getElementById('status-message');
+            document.getElementById('counter-badge').innerText = `${items.length} Item(s) found`;
+
+            tbody.innerHTML = '';
+
+            if (items.length === 0) {
+                wrapper.classList.add('hidden');
+                status.classList.remove('hidden');
+                status.innerText = "⚠️ No records match the filtered criteria.";
+                return;
+            }
+
+            status.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+
+            items.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                // Alternating row styling matching your uploaded table format background tints
+                tr.className = index % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-sky-50/40 hover:bg-slate-50';
+
+                // Parsing download anchor column parameters
+                let downloadContent = `<span class="text-slate-400 italic text-xs">No link</span>`;
+                if (item['Download'] && (item['Download'].startsWith('http://') || item['Download'].startsWith('https://'))) {
+                    downloadContent = `
+                        <a href="${item['Download']}" target="_blank" rel="noopener noreferrer" 
+                           class="text-sky-700 hover:text-sky-900 font-medium underline text-xs inline-flex items-center justify-center gap-1">
+                           Download <span class="text-[10px] text-slate-400">⬇</span>
+                        </a>`;
+                }
+
+                // Building rows to match your targets exactly:
+                // Column 1: Order No. | Column 2: Date | Column 3: Type | Column 4: Notice + Details | Column 5: Link
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-xs text-slate-700 font-medium">${item['Order No.'] || '—'}</td>
+                    <td class="p-3 text-xs text-slate-600 whitespace-nowrap">${item['Date'] || '—'}</td>
+                    <td class="p-3 text-xs"><span class="font-medium">${item['Type'] || 'General'}</span></td>
+                    <td class="p-3 text-xs leading-relaxed">
+                        <div class="font-bold text-slate-900 mb-1">${item['Notice'] || ''}</div>
+                        <div class="text-slate-600 whitespace-pre-line text-[13px]">${item['Details'] || ''}</div>
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">${downloadContent}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Filter Controller Processor Engine
+        function runFilters() {
+            const catVal = document.getElementById('filter-category').value;
+            const orderVal = document.getElementById('filter-order').value.toLowerCase().trim();
+            const subjectVal = document.getElementById('filter-subject').value.toLowerCase().trim();
+
+            const filtered = allNotices.filter(item => {
+                const matchesCat = (catVal === '-ALL-') || (item['Type'] === catVal);
+                const matchesOrder = !orderVal || (item['Order No.'] && item['Order No.'].toLowerCase().includes(orderVal));
+                
+                const matchesSubject = !subjectVal || 
+                    (item['Notice'] && item['Notice'].toLowerCase().includes(subjectVal)) ||
+                    (item['Details'] && item['Details'].toLowerCase().includes(subjectVal));
+
+                return matchesCat && matchesOrder && matchesSubject;
+            });
+
+            displayData(filtered);
+        }
+
+        // Initialize execution on load
+        async function loadDashboard() {
             try {
                 const response = await fetch(SHEET_URL);
-                if (!response.ok) throw new Error("Could not parse file source destination layout");
+                if (!response.ok) throw new Error("Could not download file data pipeline updates.");
                 
-                const csvData = await response.text();
-                allNotices = parseCSV(csvData);
+                const textData = await response.text();
+                allNotices = parseCSV(textData);
 
-                // Initialize the structural presentation
-                renderNotices(allNotices);
-                document.getElementById('last-updated').innerText = `Synced: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                populateCategories(allNotices);
+                displayData(allNotices);
 
-                // Continuous Key-Up Query filtering functionality
-                document.getElementById('search-bar').addEventListener('input', (e) => {
-                    const query = e.target.value.toLowerCase().trim();
-                    const filtered = allNotices.filter(item => {
-                        return (item['Notice'] && item['Notice'].toLowerCase().includes(query)) || 
-                               (item['Order No.'] && item['Order No.'].toLowerCase().includes(query)) ||
-                               (item['Details'] && item['Details'].toLowerCase().includes(query));
-                    });
-                    renderNotices(filtered);
-                });
+                // Event listener assignments for filtering
+                document.getElementById('filter-category').addEventListener('change', runFilters);
+                document.getElementById('filter-order').addEventListener('input', runFilters);
+                document.getElementById('filter-subject').addEventListener('input', runFilters);
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('status-message').innerHTML = `
-                    <div class="text-red-500 font-semibold">❌ Dashboard Pipeline Interrupted.</div>
-                    <p class="text-xs text-slate-400 mt-2">Check public internet connections or cross-verify that the target spreadsheet remains published to the web.</p>
-                `;
+                document.getElementById('status-message').innerText = "❌ Unable to sync data. Verify your internet access configurations.";
             }
         }
 
-        // Execute script boot
-        initDashboard();
+        loadDashboard();
     </script>
 </body>
 </html>
