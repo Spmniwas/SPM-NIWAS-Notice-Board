@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPM NIWAS - Notice Board Dashboard</title>
+    <!-- Tailwind CSS for sleek, modern layout designs -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- Navbar Header -->
+    <header class="bg-sky-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">SPM NIWAS</h1>
+                <p class="text-sky-200 text-sm mt-1">Official Digital Notice & Policy Board</p>
+            </div>
+            <div id="last-updated" class="text-xs bg-sky-800 px-3 py-1.5 rounded-md text-sky-100 border border-sky-700">
+                🔄 Connecting to Google Sheets...
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Wrapper -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        <!-- Search and Counter Controls -->
+        <div class="bg-white rounded-xl shadow-xs p-4 mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between border border-slate-200">
+            <div class="w-full sm:w-72 relative">
+                <input type="text" id="search-bar" placeholder="Search by Notice, Order No, or Details..." 
+                       class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+            </div>
+            <div class="flex gap-2 text-xs font-medium text-slate-500">
+                <span>Filter Status:</span>
+                <span id="counter" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">0 Items</span>
+            </div>
+        </div>
+
+        <!-- Loading / Status Monitor Messages -->
+        <div id="status-message" class="text-center py-12 text-slate-500 text-lg">
+            <span class="animate-pulse">Loading notices from live database...</span>
+        </div>
+
+        <!-- Grid Container for Dynamic Notices -->
+        <div id="notice-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+            <!-- Notices will load dynamically here -->
+        </div>
+    </main>
+
+    <script>
+        // Your designated Google Sheets Published CSV Link
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRb6eyiMJOIdAx5K2p1mieQdPRrfWmJaZwFhjkqanjEau2Z5DNbs0g1GofVt8bVpqTulEX_91KTpvE_/pub?gid=1532868234&single=true&output=csv';
+
+        let allNotices = []; // Global array holding raw entries for live filtering
+
+        // Robust CSV Parser designed to read data containing commas inside quotes correctly
+        function parseCSV(text) {
+            const lines = [];
+            let row = [""];
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                let next = text[i+1];
+                if (c === '"') {
+                    if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+                    else { inQuotes = !inQuotes; }
+                } else if (c === ',' && !inQuotes) {
+                    row.push('');
+                } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                    if (c === '\r' && next === '\n') { i++; }
+                    lines.push(row);
+                    row = [''];
+                } else {
+                    row[row.length - 1] += c;
+                }
+            }
+            if (row.length > 1 || row[0] !== '') lines.push(row);
+            
+            // Map keys based on headers from your spreadsheet screenshot (image_4c567a.png)
+            const headers = lines[0].map(h => h.trim());
+            return lines.slice(1).map(line => {
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = line[index] ? line[index].trim() : '';
+                });
+                return obj;
+            });
+        }
+
+        // Color styling definitions mapped according to your "Type" column dropdown flags
+        function getTypeStyle(type) {
+            const t = type ? type.toLowerCase() : '';
+            if (t.includes('policy')) return 'bg-purple-50 text-purple-700 border-purple-200';
+            if (t.includes('notice')) return 'bg-amber-50 text-amber-700 border-amber-200';
+            return 'bg-blue-50 text-blue-700 border-blue-200';
+        }
+
+        // Render card layout elements directly into the UI dashboard
+        function renderNotices(noticesToDisplay) {
+            const container = document.getElementById('notice-container');
+            document.getElementById('counter').innerText = `${noticesToDisplay.length} Item(s) active`;
+            
+            container.innerHTML = '';
+
+            if (noticesToDisplay.length === 0) {
+                container.classList.add('hidden');
+                document.getElementById('status-message').classList.remove('hidden');
+                document.getElementById('status-message').innerText = "🔍 No current announcements matched your search terms.";
+                return;
+            }
+
+            document.getElementById('status-message').classList.add('hidden');
+            container.classList.remove('hidden');
+
+            noticesToDisplay.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 p-6 flex flex-col justify-between";
+                
+                // Constructing Document Download Links securely
+                let downloadBtn = `<span class="text-slate-400 italic text-xs">No file attachment</span>`;
+                const linkVal = item['Download'];
+                
+                if (linkVal && (linkVal.startsWith('http://') || linkVal.startsWith('https://'))) {
+                    downloadBtn = `
+                        <a href="${linkVal}" target="_blank" rel="noopener noreferrer" 
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 text-sky-700 font-semibold text-xs rounded-lg border border-sky-200 hover:bg-sky-100 transition-colors">
+                           📥 View/Download Document
+                        </a>`;
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md border ${getTypeStyle(item['Type'])}">
+                                ${item['Type'] || 'General'}
+                            </span>
+                            <span class="text-xs font-mono text-slate-400">${item['Date'] || 'N/A'}</span>
+                        </div>
+                        
+                        <h3 class="text-base font-bold text-slate-900 mb-2 tracking-tight line-clamp-3" title="${item['Notice']}">
+                            ${item['Notice'] || 'Untitled Notification'}
+                        </h3>
+                        
+                        <p class="text-[11px] font-mono text-slate-400 mb-4" title="Order Number">
+                            ID: ${item['Order No.'] || 'N/A'}
+                        </p>
+                        
+                        <p class="text-slate-600 text-sm leading-relaxed mb-6 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100 max-h-48 overflow-y-auto">
+                            ${item['Details'] || 'No additional details provided.'}
+                        </p>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                        ${downloadBtn}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Live cycle execution fetching pipelines
+        async function initDashboard() {
+            try {
+                const response = await fetch(SHEET_URL);
+                if (!response.ok) throw new Error("Could not parse file source destination layout");
+                
+                const csvData = await response.text();
+                allNotices = parseCSV(csvData);
+
+                // Initialize the structural presentation
+                renderNotices(allNotices);
+                document.getElementById('last-updated').innerText = `Synced: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+
+                // Continuous Key-Up Query filtering functionality
+                document.getElementById('search-bar').addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase().trim();
+                    const filtered = allNotices.filter(item => {
+                        return (item['Notice'] && item['Notice'].toLowerCase().includes(query)) || 
+                               (item['Order No.'] && item['Order No.'].toLowerCase().includes(query)) ||
+                               (item['Details'] && item['Details'].toLowerCase().includes(query));
+                    });
+                    renderNotices(filtered);
+                });
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status-message').innerHTML = `
+                    <div class="text-red-500 font-semibold">❌ Dashboard Pipeline Interrupted.</div>
+                    <p class="text-xs text-slate-400 mt-2">Check public internet connections or cross-verify that the target spreadsheet remains published to the web.</p>
+                `;
+            }
+        }
+
+        // Execute script boot
+        initDashboard();
+    </script>
+</body>
+</html>
