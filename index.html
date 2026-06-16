@@ -82,7 +82,8 @@
     </main>
 
     <script>
-        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRb6eyiMJOIdAx5K2p1mieQdPRrfWmJaZwFhjkqanjEau2Z5DNbs0g1GofVt8bVpqTulEX_91KTpvE_/pub?gid=1532868234&single=true&output=csv';
+        // Optimized direct API dataset url
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1vRb6eyiMJOIdAx5K2p1mieQdPRrfWmJaZwFhjkqanjEau2Z5DNbs0g1GofVt8bVpqTulEX_91KTpvE_/export?format=csv&gid=1532868234';
 
         let allNotices = [];
 
@@ -119,17 +120,15 @@
             });
         }
 
-        // Helper function converting DD-MM-YY or DD-MM-YYYY strings to JavaScript Date objects safely
         function parseSheetDate(dateStr) {
             if (!dateStr) return null;
             const parts = dateStr.split('-');
             if (parts.length !== 3) return null;
 
             const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1; // JS Month starts at 0
+            const month = parseInt(parts[1], 10) - 1; 
             let year = parseInt(parts[2], 10);
 
-            // Handle shorthand two-digit year entries (e.g., '26' -> 2026)
             if (year < 100) {
                 year += 2000;
             }
@@ -193,4 +192,88 @@
                         <div class="font-bold text-slate-900 group-hover:text-sky-800 transition-colors">
                             ${item['Notice'] || 'Untitled Notification'}
                         </div>
-                        <div class="absolute left-3 right-3 mt-1 hidden group-hover:block z-50 bg-slate-900 text-slate-100 text-[13px] p-4 rounded-lg shadow-xl border border-slate-700 whitespace-pre-line leading
+                        <div class="absolute left-3 right-3 mt-1 hidden group-hover:block z-50 bg-slate-900 text-slate-100 text-[13px] p-4 rounded-lg shadow-xl border border-slate-700 whitespace-pre-line leading-relaxed max-h-60 overflow-y-auto">
+                            <div class="font-bold border-b border-slate-700 pb-1 mb-2 text-sky-400">Notice Details:</div>
+                            ${noticeDetails}
+                        </div>
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">${downloadContent}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function runFilters() {
+            const catVal = document.getElementById('filter-category').value;
+            const orderVal = document.getElementById('filter-order').value.toLowerCase().trim();
+            const subjectVal = document.getElementById('filter-subject').value.toLowerCase().trim();
+            
+            const fromDateVal = document.getElementById('filter-date-from').value; 
+            const toDateVal = document.getElementById('filter-date-to').value;
+
+            const fromLimit = fromDateVal ? new Date(fromDateVal) : null;
+            const toLimit = toDateVal ? new Date(toDateVal) : null;
+            
+            if (toLimit) toLimit.setHours(23, 59, 59, 999);
+
+            const filtered = allNotices.filter(item => {
+                const matchesCat = (catVal === '-ALL-') || (item['Type'] === catVal);
+                const matchesOrder = !orderVal || (item['Order No.'] && item['Order No.'].toLowerCase().includes(orderVal));
+                const matchesSubject = !subjectVal || 
+                    (item['Notice'] && item['Notice'].toLowerCase().includes(subjectVal)) ||
+                    (item['Details'] && item['Details'].toLowerCase().includes(subjectVal));
+
+                let matchesDate = true;
+                if (fromLimit || toLimit) {
+                    const rowDate = parseSheetDate(item['Date']);
+                    if (!rowDate) {
+                        matchesDate = false; 
+                    } else {
+                        if (fromLimit && rowDate < fromLimit) matchesDate = false;
+                        if (toLimit && rowDate > toLimit) matchesDate = false;
+                    }
+                }
+
+                return matchesCat && matchesOrder && matchesSubject && matchesDate;
+            });
+
+            displayData(filtered);
+        }
+
+        async function loadDashboard() {
+            try {
+                const response = await fetch(SHEET_URL);
+                if (!response.ok) throw new Error("Could not parse source data pipeline.");
+                
+                const textData = await response.text();
+                allNotices = parseCSV(textData);
+
+                populateCategories(allNotices);
+                displayData(allNotices);
+
+                // Attach Filter Listeners
+                document.getElementById('filter-category').addEventListener('change', runFilters);
+                document.getElementById('filter-order').addEventListener('input', runFilters);
+                document.getElementById('filter-subject').addEventListener('input', runFilters);
+                document.getElementById('filter-date-from').addEventListener('change', runFilters);
+                document.getElementById('filter-date-to').addEventListener('change', runFilters);
+
+                document.getElementById('clear-dates').addEventListener('click', () => {
+                    document.getElementById('filter-date-from').value = '';
+                    document.getElementById('filter-date-to').value = '';
+                    runFilters();
+                });
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status-message').innerHTML = `
+                    <div class="text-red-500 font-semibold">❌ Connection Error.</div>
+                    <p class="text-xs text-slate-400 mt-2">Please ensure the Google Sheet remains Shared as "Anyone with the link can view".</p>
+                `;
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
