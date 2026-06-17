@@ -15,11 +15,11 @@
     <header class="bg-[#0062cc] text-white shadow-xs px-6 py-5 mb-6">
         <div class="max-w-7xl mx-auto flex items-center gap-4">
             
-            <div class="bg-white p-1.5 rounded-md flex items-center justify-center shadow-xs">
-                <img src="https://spmniwas.org.in/images/logo.png" 
+            <div class="bg-white p-1.5 rounded-md flex items-center justify-center shadow-xs min-w-[50px] min-h-[50px]">
+                <img src="logo.png" 
                      alt="SPM NIWAS Logo" 
                      class="h-12 w-auto object-contain"
-                     onerror="this.onerror=null; this.parentElement.innerHTML='📌';">
+                     onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\"text-2xl\">🏛️</span>';">
             </div>
             
             <div>
@@ -131,7 +131,7 @@
 
         function populateCategories(data) {
             const dropdown = document.getElementById('filter-category');
-            dropdown.innerHTML = '<option value="-ALL-">All Categories</option>'; // Clean reset
+            dropdown.innerHTML = '<option value="-ALL-">All Categories</option>'; 
             const categories = new Set();
             
             data.forEach(item => {
@@ -165,7 +165,7 @@
 
             items.forEach(item => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50/80 transition-colors group";
+                tr.className = "hover:bg-slate-50/80 transition-colors";
 
                 let actionBtn = `<span class="text-slate-400 italic text-xs">No attachment</span>`;
                 if (item['Download'] && (item['Download'].startsWith('http://') || item['Download'].startsWith('https://'))) {
@@ -177,6 +177,7 @@
                 }
 
                 const subTextOrder = item['Order No.'] ? `ID: ${item['Order No.']}` : '—';
+                const noticeDetails = item['Details'] ? item['Details'] : 'No supplementary details available for this record.';
 
                 tr.innerHTML = `
                     <td class="p-4 text-slate-600 font-medium whitespace-nowrap align-middle">
@@ -187,12 +188,17 @@
                            🏷️ ${item['Type'] || 'General'}
                         </span>
                     </td>
-                    <td class="p-4 align-middle">
-                        <div class="font-semibold text-slate-900 leading-snug text-[14px]">
+                    <td class="p-4 align-middle relative group cursor-help">
+                        <div class="font-semibold text-slate-900 leading-snug text-[14px] group-hover:text-[#0062cc] transition-colors">
                             ${item['Notice'] || 'Untitled Notification'}
                         </div>
                         <div class="text-[12px] text-slate-400 font-mono mt-1 tracking-tight">
                             ${subTextOrder}
+                        </div>
+
+                        <div class="absolute left-4 left-right-margin mt-2 hidden group-hover:block z-50 bg-slate-900 text-slate-100 text-[13px] p-4 rounded-lg shadow-xl border border-slate-700 whitespace-pre-line leading-relaxed max-w-lg min-w-[300px]">
+                            <div class="font-bold border-b border-slate-700 pb-1 mb-2 text-blue-400">Notice Details:</div>
+                            ${noticeDetails}
                         </div>
                     </td>
                     <td class="p-4 text-center align-middle">
@@ -212,7 +218,7 @@
                 
                 const matchesSubject = !subjectVal || 
                     (item['Notice'] && item['Notice'].toLowerCase().includes(subjectVal)) ||
-                    (item['Order No.'] && item['Order No.'].toLowerCase().includes(subjectVal)) ||
+                    (item['Order No'] && item['Order No'].toLowerCase().includes(subjectVal)) ||
                     (item['Details'] && item['Details'].toLowerCase().includes(subjectVal));
 
                 return matchesCat && matchesSubject;
