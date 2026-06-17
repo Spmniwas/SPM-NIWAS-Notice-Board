@@ -76,7 +76,7 @@
             </div>
         </div>
 
-</main>
+    </main>
 
     <script>
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRb6eyiMJOIdAx5K2p1mieQdPRrfWmJaZwFhjkqanjEau2Z5DNbs0g1GofVt8bVpqTulEX_91KTpvE_/pub?gid=1532868234&single=true&output=csv';
@@ -102,3 +102,168 @@
                     row = [''];
                 } else {
                     row[row.length - 1] += c;
+                }
+            }
+            if (row.length > 1 || row[0] !== '') lines.push(row);
+            
+            const headers = lines[0].map(h => h.trim());
+            return lines.slice(1).map(line => {
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = line[index] ? line[index].trim() : '';
+                });
+                return obj;
+            });
+        }
+
+        function parseSheetDate(dateStr) {
+            if (!dateStr) return new Date(0); 
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return new Date(0);
+
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; 
+            let year = parseInt(parts[2], 10);
+
+            if (year < 100) year += 2000;
+            return new Date(year, month, day);
+        }
+
+        function populateCategories(data) {
+            const dropdown = document.getElementById('filter-category');
+            dropdown.innerHTML = '<option value="-ALL-">All Categories</option>'; 
+            const categories = new Set();
+            
+            data.forEach(item => {
+                if(item['Type']) categories.add(item['Type']);
+            });
+
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                dropdown.appendChild(opt);
+            });
+        }
+
+        function displayData(items) {
+            const tbody = document.getElementById('table-body');
+            const wrapper = document.getElementById('table-wrapper');
+            const status = document.getElementById('status-message');
+
+            tbody.innerHTML = '';
+
+            if (items.length === 0) {
+                wrapper.classList.add('hidden');
+                status.classList.remove('hidden');
+                status.innerText = "🔍 No notices matching your selected criteria were found.";
+                return;
+            }
+
+            status.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-colors";
+
+                let actionBtn = `<span class="text-slate-400 italic text-xs">No attachment</span>`;
+                if (item['Download'] && (item['Download'].startsWith('http://') || item['Download'].startsWith('https://'))) {
+                    actionBtn = `
+                        <a href="${item['Download']}" target="_blank" rel="noopener noreferrer" 
+                           class="inline-block bg-white text-[#0062cc] text-xs font-medium px-3 py-1.5 rounded border border-[#cbd5e1] hover:bg-[#0062cc] hover:text-white hover:border-[#0062cc] shadow-2xs transition-all text-center whitespace-nowrap">
+                           Download Document
+                        </a>`;
+                }
+
+                // Explicit bracket mapping matching image_4c567a.png schema properties
+                const subTextOrder = item['Order No.'] ? `ID: ${item['Order No.']}` : '—';
+                const noticeTitle = item['Notice'] ? item['Notice'] : 'Untitled Notification';
+                const noticeDetails = item['Details'] ? item['Details'] : 'No supplementary details available for this notice.';
+
+                tr.innerHTML = `
+                    <td class="p-4 text-slate-600 font-medium whitespace-nowrap align-middle">
+                        ${item['Date'] || '—'}
+                    </td>
+                    <td class="p-4 align-middle">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200/60">
+                           🏷️ ${item['Type'] || 'General'}
+                        </span>
+                    </td>
+                    <td class="p-4 align-middle relative group cursor-help">
+                        <div class="font-semibold text-slate-900 leading-snug text-[14px] group-hover:text-[#0062cc] transition-colors">
+                            ${noticeTitle}
+                        </div>
+                        <div class="text-[12px] text-slate-400 font-mono mt-1 tracking-tight">
+                            ${subTextOrder}
+                        </div>
+
+                        <div class="absolute left-4 mt-2 hidden group-hover:block z-50 bg-slate-900 text-slate-100 text-[13px] p-4 rounded-lg shadow-xl border border-slate-700 whitespace-pre-line leading-relaxed w-[450px]">
+                            <div class="font-bold border-b border-slate-700 pb-1 mb-2 text-sky-400">Notice Details:</div>
+                            <div>${noticeDetails}</div>
+                        </div>
+                    </td>
+                    <td class="p-4 text-center align-middle">
+                        ${actionBtn}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Updated filter processor safely tracking bracket parameters
+        function runFilters() {
+            const catVal = document.getElementById('filter-category').value;
+            const subjectVal = document.getElementById('filter-subject').value.toLowerCase().trim();
+
+            const filtered = allNotices.filter(item => {
+                const matchesCat = (catVal === '-ALL-') || (item['Type'] === catVal);
+                
+                const matchesSubject = !subjectVal || 
+                    (item['Notice'] && item['Notice'].toLowerCase().includes(subjectVal)) ||
+                    (item['Order No.'] && item['Order No.'].toLowerCase().includes(subjectVal)) ||
+                    (item['Details'] && item['Details'].toLowerCase().includes(subjectVal));
+
+                return matchesCat && matchesSubject;
+            });
+
+            displayData(filtered);
+        }
+
+        async function loadDashboard() {
+            try {
+                const response = await fetch(SHEET_URL);
+                if (!response.ok) throw new Error("Connection block hitting server.");
+                
+                const textData = await response.text();
+                const parsedData = parseCSV(textData);
+
+                allNotices = parsedData.sort((a, b) => {
+                    return parseSheetDate(b['Date']) - parseSheetDate(a['Date']);
+                });
+
+                populateCategories(allNotices);
+                displayData(allNotices);
+
+                document.getElementById('filter-category').addEventListener('change', runFilters);
+                document.getElementById('filter-subject').addEventListener('input', runFilters);
+
+                document.getElementById('reset-filters').addEventListener('click', () => {
+                    document.getElementById('filter-category').value = '-ALL-';
+                    document.getElementById('filter-subject').value = '';
+                    displayData(allNotices);
+                });
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status-message').innerHTML = `
+                    <div class="text-red-500 font-semibold">❌ Stream Fetching Failure.</div>
+                    <p class="text-xs text-slate-400 mt-1">Verify spreadsheet gateway connections are live.</p>
+                `;
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
